@@ -1,0 +1,21 @@
+# ROS 2 workspace build artifacts
+build/
+install/
+log/
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Camera snapshots
+snapshots/

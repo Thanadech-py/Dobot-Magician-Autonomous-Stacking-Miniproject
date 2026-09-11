@@ -1,0 +1,35 @@
+/**:
+  ros__parameters:
+    # =====================================================================
+    # usb_cam Node Configuration  –  ASUS FHD webcam on /dev/video0
+    # =====================================================================
+
+    # V4L2 device path
+    video_device: "/dev/video0"
+
+    # Image dimensions & frame rate
+    image_width:  640
+    image_height: 480
+    framerate:    30.0
+
+    # Pixel format: request MJPG from V4L2, decode to RGB internally
+    pixel_format: "mjpeg2rgb"
+
+    # V4L2 IO method – mmap is fastest and avoids frame copies
+    io_method: "mmap"
+
+    # Camera frame id
+    camera_frame_id: "camera_frame"
+
+    # Camera name (used for calibration lookup)
+    camera_name: "dobot_camera"
+
+    # Leave empty to skip calibration file
+    camera_info_url: ""
+
+    # Auto-exposure & brightness (-1 = driver default)
+    autoexposure: true
+    brightness:   -1
+    contrast:     -1
+    saturation:   -1
+    sharpness:    -1

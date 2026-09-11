@@ -1,0 +1,21 @@
+/**:
+  ros__parameters:
+    # V4L2 device path (/dev/video0 for external USB camera, /dev/video2 for ASUS FHD webcam)
+    # Note: /dev/video4 is the ASUS IR sensor and does not support RGB/MJPEG capture
+    video_device: "/dev/video0"
+
+    # Resolution & frame rate
+    image_width: 640
+    image_height: 480
+    framerate: 30.0
+
+    # Pixel format: request MJPG from V4L2 and decode to RGB internally
+    pixel_format: "mjpeg2rgb"
+
+    # V4L2 IO method (mmap avoids unnecessary frame copies)
+    io_method: "mmap"
+
+    # Frame and camera identification
+    camera_frame_id: "camera_frame"
+    camera_name: "narrow_stereo"
+    camera_info_url: ""

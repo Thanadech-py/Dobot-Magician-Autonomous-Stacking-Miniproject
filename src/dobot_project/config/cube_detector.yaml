@@ -1,0 +1,72 @@
+/**:
+  ros__parameters:
+    # =====================================================================
+    # USB Camera Node (open_cam)
+    # =====================================================================
+    device_id: 0          # V4L2 device index (check: ls /dev/video*)
+    width: 640
+    height: 480
+    fps: 30.0
+    frame_id: "camera_frame"
+
+    # =====================================================================
+    # Cube Detector Node (cube_detector)
+    # =====================================================================
+    image_topic: "image_decoded"
+
+    # A4 field template dimensions (mm)
+    field_width_mm: 210.0
+    field_height_mm: 297.0
+
+    # Dobot base origin relative to TL corner of A4 template (mm)
+    robot_base_x_mm: 105.0
+    robot_base_y_mm: 270.0
+
+    # Half-height of 25 mm cube (Z in robot frame, mm)
+    cube_height_mm: 12.5
+
+    # Contour area filter (pixels)
+    min_contour_area: 300
+    max_contour_area: 18000
+
+    # Draw field border and robot axes on the annotated stream
+    show_field_overlay: true
+
+    # Field corner pixels: [TL_x, TL_y, TR_x, TR_y, BR_x, BR_y, BL_x, BL_y]
+    # Set all 0.0 for automatic detection.
+    field_corners: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    # =====================================================================
+    # Dobot Controller Node (dobot_controller)
+    # =====================================================================
+
+    # Serial port for Dobot. Leave empty '' for auto-detect.
+    # Example: '/dev/ttyUSB0'
+    serial_port: ''
+
+    # PTP motion speed
+    velocity: 150.0
+    acceleration: 150.0
+
+    # Z height (mm) when hovering/travelling above the workspace
+    hover_z: 80.0
+
+    # Z height (mm) to descend to for picking up a cube
+    pick_z: 12.5
+
+    # Drop-off position in robot frame (mm)
+    dropoff_x: 200.0
+    dropoff_y:   0.0
+    dropoff_z:  30.0
+
+    # Color filter: 'all' | 'red' | 'green' | 'blue' | 'yellow'
+    pick_color: 'all'
+
+    # true = suction cup, false = gripper
+    use_suction: true
+
+    # Minimum XY displacement (mm) before triggering a new pick
+    min_move_dist: 5.0
+
+    # Home robot on startup
+    home_on_start: true

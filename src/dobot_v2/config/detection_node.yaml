@@ -1,0 +1,88 @@
+/**:
+  ros__parameters:
+    # =========================================================================
+    # 1. ROS Topics & Video Streaming
+    # =========================================================================
+    image_topic: "/image_raw/compressed"
+    camera_info_topic: "/camera_info"
+    publish_raw_image: true
+    publish_compressed_image: true
+    show_overlay: true
+    publish_rate: 30.0
+
+    # =========================================================================
+    # 2. Field & Grid Physical Geometry (Template dimensions in mm)
+    # =========================================================================
+    field_width_mm: 210.0            # A4 paper width
+    field_height_mm: 297.0           # A4 paper height
+    grid_size_mm: 114.5              # 3x3 outer grey pallet frame width & height
+    cell_count: 3                    # 3x3 cells
+    cell_size_mm: 25.0               # Inner cell cutout width & height
+    cell_pitch_mm: 35.0              # Center-to-center spacing between cells
+    grid_tl_field_x_mm: 48.0         # Grid Top-Left X position on A4 template
+    grid_tl_field_y_mm: 37.0         # Grid Top-Left Y position on A4 template
+
+    # Dobot Magician Base position on A4 template (mm)
+    robot_base_x_mm: 105.0           # Centered horizontally on A4 (210 / 2)
+    robot_base_y_mm: 270.0           # Dobot base center offset from top edge
+    cube_height_mm: 12.5             # Half-height of 25mm cube (center of mass)
+
+    # =========================================================================
+    # 3. Feeder Slots (Field Template coordinates in mm) [x, y, radius]
+    # =========================================================================
+    feeder_1: [25.7, 50.2, 22.0]     # Feeder Slot 1 (Top)
+    feeder_2: [25.7, 82.2, 22.0]     # Feeder Slot 2
+    feeder_3: [25.7, 114.2, 22.0]    # Feeder Slot 3
+    feeder_4: [25.7, 146.2, 22.0]    # Feeder Slot 4 (Bottom)
+
+    # =========================================================================
+    # 4. Grid Detection, Tracking & Auto-Locking
+    # =========================================================================
+    auto_detect_grid: true           # Automatically search for grid contour
+    lock_grid_after_detect: true     # Automatically lock grid position once stabilized
+    lock_stable_frame_count: 10      # Number of steady frames required to lock (~0.33s at 30fps)
+    grid_smoothing_alpha: 0.25       # Temporal smoothing weight (EMA)
+    max_corner_drift_px: 14.0        # Max allowable drift per corner for stability (pixels)
+    mean_corner_drift_px: 8.0        # Mean allowable drift across all 4 corners (pixels)
+    grid_max_aspect_ratio: 1.22      # Pallet is square (~1.0). Reject merged shapes with green circles (>1.35)
+    auto_save_grid_to_yaml: false    # Only save to file on explicit command or calibration tool
+
+    # Manual grid corner override in camera pixels [TL_x, TL_y, TR_x, TR_y, BR_x, BR_y, BL_x, BL_y]
+    # When all zeros, auto-detection runs. When set, locks to these exact pixel coordinates.
+    grid_corners: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    # =========================================================================
+    # 5. Grey Pallet Frame Color Segmentation (HSV)
+    # =========================================================================
+    gray_min_v: 105                  # Min brightness for grey pallet
+    gray_max_v: 170                  # Max brightness (kept below 175 to avoid background paper grid)
+    gray_max_s: 50                   # Max saturation for neutral grey
+
+    # =========================================================================
+    # 6. Cube Detection Filters & Geometry Constraints
+    # =========================================================================
+    min_cube_area: 250               # Minimum contour area in pixels
+    max_cube_area: 30000             # Maximum contour area in pixels
+    max_cube_aspect_ratio: 2.2       # Max aspect ratio (length / width)
+    min_cube_solidity: 0.78          # Min contour area / convex hull area
+    min_cube_extent: 0.65            # Min contour area / bounding box area
+    green_circle_max_circularity: 0.84  # Rejects printed green circles on paper
+
+    # =========================================================================
+    # 7. Workspace Boundary Limits in Grid Local Frame (mm)
+    # Constrains valid cube detections to the 3x3 grid and the feeder slots.
+    # =========================================================================
+    workspace_min_x_mm: -35.0
+    workspace_max_x_mm: 130.0
+    workspace_min_y_mm: -2.0
+    workspace_max_y_mm: 155.0
+
+    # =========================================================================
+    # 8. HSV Color Ranges for Cubes [H_min, S_min, V_min, H_max, S_max, V_max]
+    # Note: Red wraps around hue 0/180 and requires two ranges.
+    # =========================================================================
+    color_red_1: [0, 110, 70, 10, 255, 255]
+    color_red_2: [170, 110, 70, 180, 255, 255]
+    color_yellow: [16, 110, 80, 35, 255, 255]
+    color_green: [36, 85, 70, 85, 255, 255]
+    color_blue: [95, 105, 70, 135, 255, 255]
