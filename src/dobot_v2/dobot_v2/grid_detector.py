@@ -26,7 +26,7 @@ class GridDetector:
         self.gray_max_s = int(config.get('gray_max_s', 50))
 
         self.kernel_3 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-        self.ellipse_9 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+        self.kernel_5 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
 
         self.grid_corners = None
         self.is_locked = False
@@ -45,20 +45,23 @@ class GridDetector:
             if self.logger:
                 self.logger.info('Using manually configured grid corners from YAML.')
 
-    def detect(self, frame: np.ndarray) -> np.ndarray:
+    def detect(self, frame: np.ndarray, hsv: np.ndarray = None, gray: np.ndarray = None) -> np.ndarray:
         """Finds or tracks the pallet grid. Returns 4 corners (TL, TR, BR, BL) or None."""
         # Instant bypass when locked: 0 CPU overhead during production
         if self.is_locked and self.grid_corners is not None:
             return self.grid_corners
 
+        if hsv is None:
+            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        if gray is None:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
         h, w = frame.shape[:2]
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # 1. Mask out green feeder circles to prevent any bridging with the pallet
         mask_green = cv2.inRange(hsv, np.array([35, 50, 40], dtype=np.uint8),
                                  np.array([85, 255, 255], dtype=np.uint8))
-        mask_green_dil = cv2.dilate(mask_green, self.ellipse_9, iterations=2)
+        mask_green_dil = cv2.dilate(mask_green, self.kernel_5, iterations=1)
 
         # 2. Strategy 1: Grey color segmentation of the pallet frame
         mask_gray = cv2.inRange(hsv,
@@ -126,6 +129,9 @@ class GridDetector:
         for cnt in contours:
             area = cv2.contourArea(cnt)
             if min_area < area < max_area:
+                x, y, cw, ch = cv2.boundingRect(cnt)
+                if x <= 5 or y <= 5 or (x + cw) >= (w - 5) or (y + ch) >= (h - 5):
+                    continue
                 rect = cv2.minAreaRect(cnt)
                 (_, _), (rw, rh), _ = rect
                 if min(rw, rh) > 0:

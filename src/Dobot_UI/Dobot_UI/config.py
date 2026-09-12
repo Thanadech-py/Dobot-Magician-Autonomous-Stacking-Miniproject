@@ -60,6 +60,12 @@ DEFAULT_CONFIG = {
         "cyan":   "#06b6d4",
         "none":   "#64748b",
     },
+    "manual_control": {
+        "default_step_mm":      10.0,
+        "default_rot_step_deg": 5.0,
+        "hover_z_mm":           80.0,
+        "dropoff_z_mm":         30.0,
+    },
 }
 
 
@@ -133,3 +139,4 @@ STACKING      = _CONFIG["stacking"]
 CELL_DEFAULTS = _CONFIG["cell_defaults"]
 DETECTION     = _CONFIG["detection_node"]
 COLOR_HEX     = _CONFIG["color_hex"]
+MANUAL_CONTROL = _CONFIG["manual_control"]

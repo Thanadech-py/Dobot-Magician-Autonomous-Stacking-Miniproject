@@ -48,6 +48,15 @@ class RosBridge(QThread):
         self._fps_count = 0
         self._last_time = time.time()
         self.fps = 0.0
+        self._mock_telemetry = {
+            "state": "IDLE",
+            "message": "Ready (Simulation)",
+            "x": 200.0,
+            "y": 0.0,
+            "z": 80.0,
+            "r": 0.0,
+            "suction": False,
+        }
 
     def run(self):
         if not self.mock_mode and HAS_ROS2:
@@ -128,60 +137,58 @@ class RosBridge(QThread):
     def send_cmd(self, payload: dict):
         """Sends command dictionary as JSON string to the command topic."""
         cmd_str = json.dumps(payload)
+        cmd = payload.get("cmd")
         if not self.mock_mode and self.pub_cmd:
             msg = String()
             msg.data = cmd_str
             self.pub_cmd.publish(msg)
-            self.log_message.emit("INFO", f"Sent command: {payload.get('cmd')}")
+            self.log_message.emit("INFO", f"Sent command: {cmd}")
         else:
-            self.log_message.emit("INFO", f"[MOCK] Sent command: {payload.get('cmd')}")
+            self.log_message.emit("INFO", f"[MOCK] Sent command: {cmd}")
+            # In simulation / mock mode, update simulated state so UI controls reflect changes
+            if hasattr(self, "_mock_telemetry"):
+                if cmd == "jog":
+                    axis = payload.get("axis", "x")
+                    step = float(payload.get("step", 10.0)) * int(payload.get("direction", 1))
+                    self._mock_telemetry[axis] = round(self._mock_telemetry.get(axis, 0.0) + step, 1)
+                    self._mock_telemetry["state"] = "IDLE"
+                    self._mock_telemetry["message"] = f"Jogged {axis.upper()} to {self._mock_telemetry[axis]}"
+                    self.status_received.emit(dict(self._mock_telemetry))
+                elif cmd == "move_to":
+                    for a in ["x", "y", "z", "r"]:
+                        if a in payload:
+                            self._mock_telemetry[a] = round(float(payload[a]), 1)
+                    self._mock_telemetry["state"] = "IDLE"
+                    self._mock_telemetry["message"] = "Target pose reached"
+                    self.status_received.emit(dict(self._mock_telemetry))
+                elif cmd == "suction":
+                    self._mock_telemetry["suction"] = bool(payload.get("enable", False))
+                    self.status_received.emit(dict(self._mock_telemetry))
+                elif cmd == "preset":
+                    pname = payload.get("name")
+                    if pname == "home":
+                        self._mock_telemetry.update({"x": 200.0, "y": 0.0, "z": 80.0, "r": 0.0, "message": "Homed"})
+                    elif pname == "hover":
+                        self._mock_telemetry.update({"x": 200.0, "y": 0.0, "z": 80.0, "message": "Hovering"})
+                    elif pname == "dropoff":
+                        self._mock_telemetry.update({"x": 200.0, "y": 0.0, "z": 30.0, "message": "At Drop-off"})
+                    elif pname == "zero_r":
+                        self._mock_telemetry.update({"r": 0.0, "message": "R rotation reset"})
+                    self.status_received.emit(dict(self._mock_telemetry))
 
     def restart_detection_node(self):
-        """Closes any running detection node process and opens it again."""
-        self.log_message.emit("WARN", "Closing detection node process...")
-        node_name = DETECTION.get("ros2_node", "detection_node")
-        pkg_name = DETECTION.get("ros2_package", "dobot_v2")
-        exe_path = DETECTION.get("installed_exe", "/home/thxncdzch/dobot_ws/install/dobot_v2/lib/dobot_v2/detection_node")
-        src_script = DETECTION.get("src_script", "/home/thxncdzch/dobot_ws/src/dobot_v2/dobot_v2/detection_node.py")
-        delay = float(DETECTION.get("restart_delay_sec", 0.5))
-
-        try:
-            subprocess.run(["pkill", "-f", node_name], check=False)
-        except Exception as e:
-            self.log_message.emit("WARN", f"Process kill error: {e}")
-
-        time.sleep(delay)
-
-        # Select launch command (ros2 run > installed exe > raw python script)
-        if shutil.which("ros2"):
-            cmd = ["ros2", "run", pkg_name, node_name]
-        elif os.path.isfile(exe_path) and os.access(exe_path, os.X_OK):
-            cmd = [exe_path]
-        else:
-            cmd = [sys.executable, src_script]
-
-        try:
-            proc = subprocess.Popen(
-                cmd,
-                env=os.environ.copy(),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
-            self.log_message.emit("SUCCESS", f"Started detection node (PID: {proc.pid})")
-        except Exception as e:
-            self.log_message.emit("ERROR", f"Failed to start detection node: {e}")
-
-        # Publish reset_grid if ROS node is live
-        try:
-            if self.node:
+        """Resets vision grid tracking cleanly via ROS topic without duplicate process conflicts."""
+        self.log_message.emit("INFO", "Resetting vision grid tracking...")
+        if self.node:
+            try:
                 reset_topic = TOPICS.get("reset_grid", "reset_grid")
                 pub = self.node.create_publisher(String, reset_topic, 10)
                 msg = String()
                 msg.data = "reset"
                 pub.publish(msg)
-        except Exception:
-            pass
+                self.log_message.emit("SUCCESS", "Published grid reset to /reset_grid.")
+            except Exception as e:
+                self.log_message.emit("WARN", f"Could not publish reset: {e}")
 
     def stop(self):
         self._running = False
@@ -190,6 +197,8 @@ class RosBridge(QThread):
     def _run_mock(self):
         """Placeholder frame generator for headless/mock testing."""
         w, h = 640, 480
+        if hasattr(self, "_mock_telemetry"):
+            self.status_received.emit(dict(self._mock_telemetry))
         while self._running:
             frame = np.full((h, w, 3), 30, dtype=np.uint8)
             cv2.rectangle(frame, (170, 90), (470, 390), (160, 160, 160), 2)

@@ -30,6 +30,7 @@ except ImportError:
 
 try:
     import rclpy
+    import rclpy.utilities
     HAS_ROS2 = True
 except ImportError:
     HAS_ROS2 = False
@@ -53,7 +54,6 @@ def main(args=None):
             if not rclpy.ok():
                 rclpy.init(args=cli_args)
             try:
-                import rclpy.utilities
                 clean_args = rclpy.utilities.remove_ros_args(args=cli_args)
             except Exception:
                 pass

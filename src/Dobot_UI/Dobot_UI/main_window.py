@@ -2,12 +2,14 @@
 
 try:
     from PyQt6.QtWidgets import (
-        QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QMessageBox
+        QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QMessageBox,
+        QTabWidget
     )
     from PyQt6.QtCore import Qt
 except ImportError:
     from PyQt5.QtWidgets import (
-        QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QMessageBox
+        QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QMessageBox,
+        QTabWidget
     )
     from PyQt5.QtCore import Qt
 
@@ -21,6 +23,7 @@ try:
     from .widgets.sequence_widget import SequenceWidget
     from .widgets.robot_telemetry_widget import RobotTelemetryWidget
     from .widgets.log_widget import LogWidget
+    from .widgets.manual_control_widget import ManualControlWidget
 except (ImportError, ValueError):
     from Dobot_UI.constants import STYLESHEET
     from Dobot_UI.config import WINDOW
@@ -31,6 +34,7 @@ except (ImportError, ValueError):
     from Dobot_UI.widgets.sequence_widget import SequenceWidget
     from Dobot_UI.widgets.robot_telemetry_widget import RobotTelemetryWidget
     from Dobot_UI.widgets.log_widget import LogWidget
+    from Dobot_UI.widgets.manual_control_widget import ManualControlWidget
 
 
 class DobotMainWindow(QMainWindow):
@@ -58,7 +62,7 @@ class DobotMainWindow(QMainWindow):
         self.toolbar = ControlBarWidget(self)
         root.addWidget(self.toolbar)
 
-        # 2. Main Splitter: Left (Video + Telemetry) | Right (3x3 Grid + Sequence)
+        # 2. Main Splitter: Left (Video + Telemetry) | Right (Tabs: Mission vs Manual)
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         left = QWidget()
@@ -70,14 +74,25 @@ class DobotMainWindow(QMainWindow):
         l_lay.addWidget(self.telemetry, stretch=1)
         splitter.addWidget(left)
 
-        right = QWidget()
-        r_lay = QVBoxLayout(right)
-        r_lay.setContentsMargins(0, 0, 0, 0)
+        # Right Tabbed Panel
+        self.right_tabs = QTabWidget()
+
+        # Tab 1: Stacking Mission Planner
+        tab_mission = QWidget()
+        r_lay = QVBoxLayout(tab_mission)
+        r_lay.setContentsMargins(4, 6, 4, 4)
         self.grid = FieldGridWidget(self)
         r_lay.addWidget(self.grid, stretch=2)
         self.seq = SequenceWidget(self)
         r_lay.addWidget(self.seq, stretch=2)
-        splitter.addWidget(right)
+        self.right_tabs.addTab(tab_mission, "🎯 Stacking Mission")
+
+        # Tab 2: Manual Control
+        self.manual_ctrl = ManualControlWidget(self)
+        self.right_tabs.addTab(self.manual_ctrl, "🎮 Manual Control")
+
+        splitter.addWidget(self.right_tabs)
+        splitter.setSizes([480, 600])
 
         root.addWidget(splitter, stretch=1)
 
@@ -89,12 +104,25 @@ class DobotMainWindow(QMainWindow):
         # ROS bridge signals
         self.bridge.image_received.connect(self.video.set_frame)
         self.bridge.status_received.connect(self.telemetry.update_status)
+        self.bridge.status_received.connect(self.manual_ctrl.update_telemetry)
         self.bridge.detections_received.connect(self._on_detections)
         self.bridge.log_message.connect(self.log.append_log)
 
         # Grid and sequence updates
         self.grid.sequence_changed.connect(self._sync_sequence)
         self.grid.sync_requested.connect(self._on_sync_vision)
+
+        # Mode toggle & Tab changed
+        self.toolbar.toggle_manual_mode_requested.connect(self._toggle_mode)
+        self.right_tabs.currentChanged.connect(self._on_tab_changed)
+
+        # Manual Control signals
+        self.manual_ctrl.jog_requested.connect(self._on_manual_jog)
+        self.manual_ctrl.move_to_requested.connect(self._on_manual_move_to)
+        self.manual_ctrl.suction_requested.connect(self._on_manual_suction)
+        self.manual_ctrl.gripper_requested.connect(self._on_manual_gripper)
+        self.manual_ctrl.preset_requested.connect(self._on_manual_preset)
+        self.manual_ctrl.stop_requested.connect(lambda: self.bridge.send_cmd({"cmd": "stop"}))
 
         # Commands
         self.toolbar.connect_requested.connect(lambda: self.bridge.send_cmd({"cmd": "connect"}))
@@ -141,6 +169,65 @@ class DobotMainWindow(QMainWindow):
         }
         self.bridge.send_cmd(payload)
         self.log.append_log("INFO", f"Dispatched mission with {len(tasks)} stacking steps.")
+
+    def _toggle_mode(self):
+        new_idx = 1 if self.right_tabs.currentIndex() == 0 else 0
+        self.right_tabs.setCurrentIndex(new_idx)
+
+    def _on_tab_changed(self, index: int):
+        if index == 1:
+            self.toolbar.btn_mode.setText("🎯 Mission Mode")
+            self.log.append_log("INFO", "Switched to Manual Control mode.")
+        else:
+            self.toolbar.btn_mode.setText("🎮 Manual Mode")
+            self.log.append_log("INFO", "Switched to Stacking Mission mode.")
+
+    def _on_manual_jog(self, axis: str, direction: int, step: float):
+        payload = {
+            "cmd": "jog",
+            "axis": axis.lower(),
+            "direction": direction,
+            "step": step,
+        }
+        self.bridge.send_cmd(payload)
+        sign = "+" if direction > 0 else "-"
+        unit = "°" if axis.lower() == "r" else "mm"
+        self.log.append_log("INFO", f"Manual Jog: {axis.upper()} {sign}{step:.1f}{unit}")
+
+    def _on_manual_move_to(self, x: float, y: float, z: float, r: float):
+        payload = {
+            "cmd": "move_to",
+            "x": x,
+            "y": y,
+            "z": z,
+            "r": r,
+        }
+        self.bridge.send_cmd(payload)
+        self.log.append_log("INFO", f"Manual Move: X={x:.1f}, Y={y:.1f}, Z={z:.1f}, R={r:.1f}")
+
+    def _on_manual_suction(self, enable: bool):
+        payload = {
+            "cmd": "suction",
+            "enable": enable,
+        }
+        self.bridge.send_cmd(payload)
+        self.log.append_log("INFO", f"Manual Suction: {'ON' if enable else 'OFF'}")
+
+    def _on_manual_gripper(self, grip: bool):
+        payload = {
+            "cmd": "gripper",
+            "grip": grip,
+        }
+        self.bridge.send_cmd(payload)
+        self.log.append_log("INFO", f"Manual Gripper: {'GRIP (CLOSE)' if grip else 'RELEASE (OPEN)'}")
+
+    def _on_manual_preset(self, preset_name: str):
+        payload = {
+            "cmd": "preset",
+            "name": preset_name,
+        }
+        self.bridge.send_cmd(payload)
+        self.log.append_log("INFO", f"Manual Preset: {preset_name}")
 
     def closeEvent(self, event):
         self.bridge.stop()

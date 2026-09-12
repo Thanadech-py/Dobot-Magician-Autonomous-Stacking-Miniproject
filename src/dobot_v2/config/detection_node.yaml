@@ -3,9 +3,9 @@
     # =========================================================================
     # 1. ROS Topics & Video Streaming
     # =========================================================================
-    image_topic: "/image_raw/compressed"
+    image_topic: "/image_raw"
     camera_info_topic: "/camera_info"
-    publish_raw_image: true
+    publish_raw_image: false
     publish_compressed_image: true
     show_overlay: true
     publish_rate: 30.0
@@ -38,24 +38,29 @@
     # =========================================================================
     # 4. Grid Detection, Tracking & Auto-Locking
     # =========================================================================
-    auto_detect_grid: true           # Automatically search for grid contour
+    auto_detect_grid: true           # Automatically search for grid contour if corners not set
     lock_grid_after_detect: true     # Automatically lock grid position once stabilized
-    lock_stable_frame_count: 10      # Number of steady frames required to lock (~0.33s at 30fps)
+    lock_stable_frame_count: 10      # Steady frames required to lock (~0.33s at 30fps)
     grid_smoothing_alpha: 0.25       # Temporal smoothing weight (EMA)
     max_corner_drift_px: 14.0        # Max allowable drift per corner for stability (pixels)
     mean_corner_drift_px: 8.0        # Mean allowable drift across all 4 corners (pixels)
     grid_max_aspect_ratio: 1.22      # Pallet is square (~1.0). Reject merged shapes with green circles (>1.35)
     auto_save_grid_to_yaml: false    # Only save to file on explicit command or calibration tool
 
-    # Manual grid corner override in camera pixels [TL_x, TL_y, TR_x, TR_y, BR_x, BR_y, BL_x, BL_y]
-    # When all zeros, auto-detection runs. When set, locks to these exact pixel coordinates.
-    grid_corners: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    # Calibrated physical pallet corners in camera pixels:
+    # Corner order: [ (gx=0, gy=0), (gx=114.5, gy=0), (gx=114.5, gy=114.5), (gx=0, gy=114.5) ]
+    # In camera coordinates (180° inverted mounting):
+    #   P0 (0,0):       [495.0, 388.0] (Bottom-Right, near Feeder 1 & Top of sheet)
+    #   P1 (114.5,0):   [138.0, 390.0] (Bottom-Left, outer & Top of sheet)
+    #   P2 (114.5,114.5): [138.0, 30.0]  (Top-Left, outer & near Dobot base)
+    #   P3 (0,114.5):   [495.0, 28.0]  (Top-Right, near Feeder 4 & Dobot base)
+    grid_corners: [495.0, 388.0, 138.0, 390.0, 138.0, 30.0, 495.0, 28.0]
 
     # =========================================================================
     # 5. Grey Pallet Frame Color Segmentation (HSV)
     # =========================================================================
     gray_min_v: 105                  # Min brightness for grey pallet
-    gray_max_v: 170                  # Max brightness (kept below 175 to avoid background paper grid)
+    gray_max_v: 195                  # Max brightness (extended to 195 to capture illuminated pallet borders)
     gray_max_s: 50                   # Max saturation for neutral grey
 
     # =========================================================================

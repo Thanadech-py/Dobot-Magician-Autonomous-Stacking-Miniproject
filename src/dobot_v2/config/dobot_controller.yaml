@@ -1,0 +1,53 @@
+# ──────────────────────────────────────────────────────────────────
+#  Dobot Magician Controller Configuration (dobot_v2)
+# ──────────────────────────────────────────────────────────────────
+
+dobot_controller:
+  ros__parameters:
+    # ── Connection ─────────────────────────────────────────────────
+    serial_port: ""              # Serial port (e.g. '/dev/ttyUSB0'). Empty = auto-detect.
+    baudrate: 115200             # Baudrate for Dobot serial communication
+    auto_connect: true           # Attempt connection on node startup
+    home_on_start: true          # Automatically home Dobot upon initial connection
+    reconnect_attempts: 3        # Number of reconnection retries
+    reconnect_delay_sec: 2.0     # Delay between reconnection attempts
+
+    # ── Kinematics & Velocity ──────────────────────────────────────
+    velocity: 150.0              # PTP velocity (mm/s or deg/s)
+    acceleration: 150.0          # PTP acceleration (mm/s² or deg/s²)
+
+    # ── Cartesian Workspace Limits (mm / deg) ─────────────────────
+    limits:
+      min_x: 100.0
+      max_x: 330.0
+      min_y: -250.0
+      max_y: 250.0
+      min_z: -60.0
+      max_z: 160.0
+      min_r: -180.0
+      max_r: 180.0
+
+    # ── Geometrical Heights & Positions (mm) ──────────────────────
+    geometry:
+      hover_z: 80.0              # Safe transit height above field
+      pick_z: 12.5               # Descend height for picking cubes
+      dropoff_x: 200.0           # Center goal drop-off X coordinate
+      dropoff_y: 0.0             # Center goal drop-off Y coordinate
+      dropoff_z: 30.0            # Base drop height for bottom cube
+      cube_height: 25.0          # Cube height increment per stacking level
+      calib_x: 150.0             # Neutral calibration X
+      calib_y: 0.0               # Neutral calibration Y
+      calib_z: 80.0              # Neutral calibration Z
+
+    # ── End-Effector ───────────────────────────────────────────────
+    effector:
+      use_suction: true          # true = suction cup, false = mechanical gripper
+      dwell_grip_sec: 0.35       # Pause after enabling suction before lifting (seconds)
+      dwell_release_sec: 0.25    # Pause after disabling suction before ascending (seconds)
+
+    # ── Telemetry & ROS Communication ─────────────────────────────
+    telemetry:
+      publish_rate_hz: 10.0      # Status publishing frequency (Hz)
+      cmd_topic: "dobot_ui_cmd"  # Incoming commands from UI
+      status_topic: "dobot_status" # Feedback to UI and other nodes
+      detections_topic: "detected_objects" # Vision cube detections

@@ -2,6 +2,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -62,6 +63,13 @@ def generate_launch_description():
         ],
     )
 
+    # Optional controller launch
+    launch_controller_arg = DeclareLaunchArgument(
+        'launch_controller',
+        default_value='false',
+        description='Optionally launch dobot_controller along with vision'
+    )
+
     # Node: detection_node
     detection_node = Node(
         package='dobot_v2',
@@ -73,11 +81,24 @@ def generate_launch_description():
         parameters=[LaunchConfiguration('detection_params_file')],
     )
 
+    # Node: dobot_controller
+    controller_node = Node(
+        package='dobot_v2',
+        executable='dobot_controller',
+        name='dobot_controller',
+        output='screen',
+        respawn=True,
+        respawn_delay=2.0,
+        condition=IfCondition(LaunchConfiguration('launch_controller')),
+    )
+
     return LaunchDescription([
         params_file_arg,
         detection_params_file_arg,
         video_device_arg,
         camera_info_url_arg,
+        launch_controller_arg,
         usb_cam_node,
         detection_node,
+        controller_node,
     ])

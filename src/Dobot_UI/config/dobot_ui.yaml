@@ -57,3 +57,11 @@ color_hex:
   purple: "#a855f7"
   cyan:   "#06b6d4"
   none:   "#64748b"
+
+# ── Manual Control Defaults ───────────────────────────────────────
+manual_control:
+  default_step_mm:      10.0   # Linear jog step (mm)
+  default_rot_step_deg: 5.0    # Rotation jog step (deg)
+  hover_z_mm:           80.0   # Preset hover height (mm)
+  dropoff_z_mm:         30.0   # Preset drop height (mm)
+

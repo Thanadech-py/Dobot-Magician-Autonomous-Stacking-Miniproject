@@ -50,7 +50,7 @@ class VideoWidget(QFrame):
         scaled = pix.scaled(
             self.lbl_canvas.size(),
             Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation
+            Qt.TransformationMode.FastTransformation
         )
         self.lbl_canvas.setPixmap(scaled)
         self.lbl_fps.setText(f"{fps:.1f} FPS")

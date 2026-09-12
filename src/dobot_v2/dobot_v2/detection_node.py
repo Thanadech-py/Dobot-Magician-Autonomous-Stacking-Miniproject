@@ -79,7 +79,9 @@ class DetectionNode(Node):
 
         # 1. Load Parameters from config/detection_node.yaml
         self.cfg = self._load_all_parameters()
-        self.min_frame_interval = 1.0 / max(1.0, float(self.cfg.get('publish_rate', 30.0)))
+        self.publish_rate = float(self.cfg.get('publish_rate', 30.0))
+        self.min_frame_interval = 1.0 / max(1.0, self.publish_rate)
+        self._jpeg_params = [int(cv2.IMWRITE_JPEG_QUALITY), 70, int(cv2.IMWRITE_JPEG_OPTIMIZE), 0]
 
         # 2. Initialize Subsystems
         self.transform = FieldTransform(self.cfg)
@@ -118,7 +120,7 @@ class DetectionNode(Node):
         qos = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,
                          history=HistoryPolicy.KEEP_LAST, depth=1)
 
-        img_topic = self.cfg.get('image_topic', '/image_raw/compressed')
+        img_topic = self.cfg.get('image_topic', '/image_raw')
         if 'compressed' in img_topic.lower():
             self.create_subscription(CompressedImage, img_topic, self._on_compressed_img, qos)
         else:
@@ -134,7 +136,7 @@ class DetectionNode(Node):
 
         # Output publishers
         self.pub_comp = self.create_publisher(CompressedImage, 'detected_objects_image/compressed', 10)
-        self.pub_raw = self.create_publisher(Image, 'detected_objects_image', 10) if self.cfg.get('publish_raw_image', True) else None
+        self.pub_raw = self.create_publisher(Image, 'detected_objects_image', 10) if self.cfg.get('publish_raw_image', False) else None
         self.pub_json = self.create_publisher(String, 'detected_objects', 10)
         self.pub_poses_robot = self.create_publisher(PoseArray, 'detected_objects_poses', 10)
         self.pub_poses_grid = self.create_publisher(PoseArray, 'grid_local_poses', 10)
@@ -159,7 +161,9 @@ class DetectionNode(Node):
 
     def _should_throttle(self) -> bool:
         now = time.time()
-        if (now - self.last_proc_time) < self.min_frame_interval:
+        # 20% jitter tolerance prevents camera clock jitter from cutting FPS in half
+        margin = 0.80 if self.publish_rate >= 30.0 else 0.85
+        if (now - self.last_proc_time) < (self.min_frame_interval * margin):
             return True
         self.last_proc_time = now
         return False
@@ -170,19 +174,26 @@ class DetectionNode(Node):
 
     def _process(self, frame: np.ndarray, header):
         try:
-            # 1. Pallet Grid Detection & Homography Update
-            corners = self.grid_detector.detect(frame)
-            if corners is not None and not np.array_equal(corners, self.transform.dst_grid_pts):
-                self.transform.update_corners(corners)
-
-            # 2. Cube Detection
+            # 1. Single HSV conversion for both grid detector and cube detector
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+            # 2. Pallet Grid Detection (grayscale only computed if grid is still searching)
+            gray = None
+            if not self.grid_detector.is_locked:
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+            corners = self.grid_detector.detect(frame, hsv=hsv, gray=gray)
+            if corners is not None and (self.transform.homography is None or not np.array_equal(corners, getattr(self.transform, 'last_src_corners', None))):
+                self.transform.update_corners(corners)
+                self.transform.last_src_corners = corners.copy()
+
+            # 3. Cube Detection using precomputed HSV
             detected_objects, counts = self.cube_detector.detect(hsv, self.transform)
 
-            # 3. Publish Telemetry & Poses
+            # 4. Publish Telemetry & Poses
             self._publish_data(header, detected_objects, counts)
 
-            # 4. On-Demand Visual Overlay (Bypass when no client is subscribed -> Saves 50%+ CPU)
+            # 5. On-Demand Visual Overlay (Bypass when no client is subscribed -> Saves 50%+ CPU)
             has_subscribers = (
                 self.pub_comp.get_subscription_count() > 0 or
                 (self.pub_raw is not None and self.pub_raw.get_subscription_count() > 0)
@@ -245,7 +256,7 @@ class DetectionNode(Node):
 
     def _publish_images(self, vis: np.ndarray, header):
         if self.pub_comp.get_subscription_count() > 0:
-            success, enc = cv2.imencode('.jpg', vis, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+            success, enc = cv2.imencode('.jpg', vis, self._jpeg_params)
             if success:
                 msg = CompressedImage(header=header, format='jpeg', data=enc.tobytes())
                 self.pub_comp.publish(msg)

@@ -55,12 +55,14 @@ class CubeDetector:
             return detected, counts
 
         for color_name, ranges in self.color_ranges.items():
-            mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
-            for lower, upper in ranges:
-                mask = cv2.bitwise_or(mask, cv2.inRange(hsv, lower, upper))
+            if len(ranges) == 1:
+                mask = cv2.inRange(hsv, ranges[0][0], ranges[0][1])
+            else:
+                m1 = cv2.inRange(hsv, ranges[0][0], ranges[0][1])
+                m2 = cv2.inRange(hsv, ranges[1][0], ranges[1][1])
+                mask = cv2.bitwise_or(m1, m2)
 
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, self.kernel_3, iterations=1)
-            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, self.kernel_3, iterations=1)
 
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 

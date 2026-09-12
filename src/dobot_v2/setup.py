@@ -31,7 +31,8 @@ setup(
     entry_points={
         'console_scripts': [
             'detection_node = dobot_v2.detection_node:main',
-            'calibrate_grid = dobot_v2.calibrate_grid:main'
+            'calibrate_grid = dobot_v2.calibrate_grid:main',
+            'dobot_controller = dobot_v2.dobot_controller_node:main',
         ],
     },
 )

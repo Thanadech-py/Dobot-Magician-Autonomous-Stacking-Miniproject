@@ -43,28 +43,69 @@ class FieldTransform:
         return rect
 
     def update_corners(self, corners: np.ndarray):
-        """Updates homography matrices given 4 camera pixel corners."""
+        """Updates homography matrices and precomputes static pixel geometry."""
         if corners is None or len(corners) != 4:
             return
         pts_src = corners.astype(np.float32)
         self.homography = cv2.getPerspectiveTransform(pts_src, self.dst_grid_pts)
         self.inv_homography = cv2.getPerspectiveTransform(self.dst_grid_pts, pts_src)
+        self._precompute_cached_geometry()
+
+    def _precompute_cached_geometry(self):
+        """Precomputes cell cutout pixel polygons and origin axes to avoid per-frame recomputation."""
+        self.cached_cells = []
+        half = self.cell_size / 2.0
+        for r in range(self.cell_count):
+            for c in range(self.cell_count):
+                cx_mm = self.grid_size / 2.0 + (c - 1) * self.cell_pitch
+                cy_mm = self.grid_size / 2.0 + (r - 1) * self.cell_pitch
+                pts = [
+                    self.grid_to_pixel(cx_mm - half, cy_mm - half),
+                    self.grid_to_pixel(cx_mm + half, cy_mm - half),
+                    self.grid_to_pixel(cx_mm + half, cy_mm + half),
+                    self.grid_to_pixel(cx_mm - half, cy_mm + half),
+                ]
+                center_px = self.grid_to_pixel(cx_mm, cy_mm)
+                is_goal = (r == 1 and c == 1)
+                self.cached_cells.append({
+                    'row': r,
+                    'col': c,
+                    'is_goal': is_goal,
+                    'poly': np.array(pts, dtype=np.int32) if all(p is not None for p in pts) else None,
+                    'center': center_px,
+                    'label': "GOAL" if is_goal else f"({r},{c})",
+                })
+
+        # Origin axes
+        self.cached_origin = {
+            'p0': self.grid_to_pixel(0.0, 0.0),
+            'px': self.grid_to_pixel(30.0, 0.0),
+            'py': self.grid_to_pixel(0.0, 30.0),
+        }
 
     def pixel_to_grid(self, u: float, v: float):
-        """Transforms camera pixel (u, v) into Grid Local Frame coordinates (gx, gy) in mm."""
+        """Transforms camera pixel (u, v) into Grid Local Frame coordinates (gx, gy) in mm using fast scalar math."""
         if self.homography is None:
             return None
-        px_pt = np.array([[[float(u), float(v)]]], dtype=np.float32)
-        grid_pt = cv2.perspectiveTransform(px_pt, self.homography)[0][0]
-        return float(grid_pt[0]), float(grid_pt[1])
+        h = self.homography
+        w = h[2, 0] * u + h[2, 1] * v + h[2, 2]
+        if abs(w) < 1e-7:
+            return None
+        gx = (h[0, 0] * u + h[0, 1] * v + h[0, 2]) / w
+        gy = (h[1, 0] * u + h[1, 1] * v + h[1, 2]) / w
+        return float(gx), float(gy)
 
     def grid_to_pixel(self, gx: float, gy: float):
-        """Transforms Grid Local coordinates (gx, gy) in mm to camera pixel (u, v)."""
+        """Transforms Grid Local coordinates (gx, gy) in mm to camera pixel (u, v) using fast scalar math."""
         if self.inv_homography is None:
             return None
-        g_pt = np.array([[[float(gx), float(gy)]]], dtype=np.float32)
-        px_pt = cv2.perspectiveTransform(g_pt, self.inv_homography)[0][0]
-        return int(round(px_pt[0])), int(round(px_pt[1]))
+        inv = self.inv_homography
+        w = inv[2, 0] * gx + inv[2, 1] * gy + inv[2, 2]
+        if abs(w) < 1e-7:
+            return None
+        u = (inv[0, 0] * gx + inv[0, 1] * gy + inv[0, 2]) / w
+        v = (inv[1, 0] * gx + inv[1, 1] * gy + inv[1, 2]) / w
+        return int(round(u)), int(round(v))
 
     def grid_to_robot(self, gx: float, gy: float):
         """Transforms Grid Local coordinates (gx, gy) to Field and Dobot Base coordinates (mm)."""

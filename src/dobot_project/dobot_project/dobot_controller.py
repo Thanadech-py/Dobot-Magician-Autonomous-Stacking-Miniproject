@@ -341,6 +341,78 @@ class DobotControllerNode(Node):
             self._publish_status('mission', f'Mission started with {len(tasks)} tasks')
             self.get_logger().info(f'Mission loaded: {len(tasks)} tasks')
 
+        elif cmd == 'stop':
+            with self._lock:
+                self._mission_active = False
+                self._busy = False
+            self._publish_status('idle', 'Emergency stop: operations halted.')
+            self.get_logger().info('Emergency stop triggered.')
+
+        elif cmd == 'jog':
+            axis = str(cmd_data.get('axis', 'x')).lower()
+            direction = int(cmd_data.get('direction', 1))
+            step = float(cmd_data.get('step', 10.0))
+            if self._dobot is None:
+                self._publish_status('error', 'Not connected')
+                return
+            with self._lock:
+                if self._busy:
+                    self._publish_status('error', 'Busy — cannot jog now')
+                    return
+                self._busy = True
+            threading.Thread(target=self._do_jog, args=(axis, direction, step), daemon=True).start()
+
+        elif cmd == 'move_to':
+            x = float(cmd_data.get('x', 200.0))
+            y = float(cmd_data.get('y', 0.0))
+            z = float(cmd_data.get('z', self.hover_z))
+            r = float(cmd_data.get('r', 0.0))
+            if self._dobot is None:
+                self._publish_status('error', 'Not connected')
+                return
+            with self._lock:
+                if self._busy:
+                    self._publish_status('error', 'Busy — cannot move now')
+                    return
+                self._busy = True
+            threading.Thread(target=self._do_move_to, args=(x, y, z, r), daemon=True).start()
+
+        elif cmd == 'suction':
+            enable = bool(cmd_data.get('enable', False))
+            if self._dobot is not None:
+                try:
+                    if enable:
+                        self._effector_on(self._dobot)
+                    else:
+                        self._effector_off(self._dobot)
+                    self._publish_status('idle', f'Suction {"ON" if enable else "OFF"}')
+                except Exception as e:
+                    self._publish_status('error', str(e))
+
+        elif cmd == 'gripper':
+            grip = bool(cmd_data.get('grip', False))
+            if self._dobot is not None:
+                try:
+                    if grip:
+                        self._dobot.wait_for_cmd(self._dobot.grip(True))
+                    else:
+                        self._dobot.wait_for_cmd(self._dobot.grip(False))
+                    self._publish_status('idle', f'Gripper {"CLOSED" if grip else "OPEN"}')
+                except Exception as e:
+                    self._publish_status('error', str(e))
+
+        elif cmd == 'preset':
+            preset_name = str(cmd_data.get('name', 'hover'))
+            if self._dobot is None:
+                self._publish_status('error', 'Not connected')
+                return
+            with self._lock:
+                if self._busy:
+                    self._publish_status('error', 'Busy')
+                    return
+                self._busy = True
+            threading.Thread(target=self._do_preset, args=(preset_name,), daemon=True).start()
+
         else:
             self.get_logger().warn(f'Unknown UI command: {cmd!r}')
 
@@ -370,6 +442,64 @@ class DobotControllerNode(Node):
             self.get_logger().info('Calibration position reached.')
         except DobotException as e:
             self.get_logger().error(f'Calibrate error: {e}')
+            self._publish_status('error', str(e))
+        finally:
+            with self._lock:
+                self._busy = False
+
+    def _do_jog(self, axis: str, direction: int, step: float):
+        """Thread: execute manual jog step along specified axis."""
+        try:
+            pose = self._dobot.pose()
+            tx, ty, tz, tr = float(pose[0]), float(pose[1]), float(pose[2]), float(pose[3])
+            delta = float(direction * step)
+            if axis == 'x': tx += delta
+            elif axis == 'y': ty += delta
+            elif axis == 'z': tz += delta
+            elif axis == 'r': tr += delta
+
+            self._publish_status('moving', f'Jogging {axis.upper()} to ({tx:.1f}, {ty:.1f}, {tz:.1f})')
+            self._dobot.wait_for_cmd(self._dobot.move_to(tx, ty, tz, tr, MODE_PTP.MOVJ_XYZ))
+            self._publish_status('idle', f'Jog {axis.upper()} complete.')
+        except Exception as e:
+            self.get_logger().error(f'Jog error: {e}')
+            self._publish_status('error', str(e))
+        finally:
+            with self._lock:
+                self._busy = False
+
+    def _do_move_to(self, x: float, y: float, z: float, r: float):
+        """Thread: execute PTP move to target coordinates."""
+        try:
+            self._publish_status('moving', f'Moving to ({x:.1f}, {y:.1f}, {z:.1f})')
+            self._dobot.wait_for_cmd(self._dobot.move_to(x, y, z, r, MODE_PTP.MOVJ_XYZ))
+            self._publish_status('idle', 'Target position reached.')
+        except Exception as e:
+            self.get_logger().error(f'Move error: {e}')
+            self._publish_status('error', str(e))
+        finally:
+            with self._lock:
+                self._busy = False
+
+    def _do_preset(self, name: str):
+        """Thread: move to a preset position."""
+        try:
+            if name == 'home':
+                self._publish_status('moving', 'Homing...')
+                self._dobot.wait_for_cmd(self._dobot.home())
+            elif name == 'hover':
+                self._publish_status('moving', 'Moving to hover height...')
+                self._dobot.wait_for_cmd(self._dobot.move_to(200.0, 0.0, self.hover_z, 0.0, MODE_PTP.MOVJ_XYZ))
+            elif name == 'dropoff':
+                self._publish_status('moving', 'Moving to drop-off position...')
+                self._dobot.wait_for_cmd(self._dobot.move_to(self.drop_x, self.drop_y, self.drop_z, 0.0, MODE_PTP.MOVJ_XYZ))
+            elif name == 'zero_r':
+                pose = self._dobot.pose()
+                self._publish_status('moving', 'Resetting wrist angle to 0°...')
+                self._dobot.wait_for_cmd(self._dobot.move_to(float(pose[0]), float(pose[1]), float(pose[2]), 0.0, MODE_PTP.MOVJ_XYZ))
+            self._publish_status('idle', f'Preset {name} reached.')
+        except Exception as e:
+            self.get_logger().error(f'Preset error: {e}')
             self._publish_status('error', str(e))
         finally:
             with self._lock:
@@ -453,6 +583,7 @@ class DobotControllerNode(Node):
     # -----------------------------------------------------------------------
 
     def _effector_on(self, d: Dobot):
+        self._suction_active = True
         if self.suction:
             d.wait_for_cmd(d.suck(True))
             self.get_logger().info('  → Suction ON')
@@ -461,6 +592,7 @@ class DobotControllerNode(Node):
             self.get_logger().info('  → Gripper CLOSED')
 
     def _effector_off(self, d: Dobot):
+        self._suction_active = False
         if self.suction:
             d.wait_for_cmd(d.suck(False))
             self.get_logger().info('  → Suction OFF')
@@ -473,8 +605,19 @@ class DobotControllerNode(Node):
     # -----------------------------------------------------------------------
 
     def _publish_status(self, state: str, message: str):
+        data = {'state': state, 'message': message}
+        if self._dobot is not None:
+            try:
+                pose = self._dobot.pose()
+                data['x'] = float(pose[0])
+                data['y'] = float(pose[1])
+                data['z'] = float(pose[2])
+                data['r'] = float(pose[3])
+                data['suction'] = getattr(self, '_suction_active', False)
+            except Exception:
+                pass
         s = String()
-        s.data = json.dumps({'state': state, 'message': message})
+        s.data = json.dumps(data)
         self.pub_status.publish(s)
 
     # -----------------------------------------------------------------------

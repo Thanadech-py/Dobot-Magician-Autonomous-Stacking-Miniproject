@@ -13,6 +13,7 @@ class ControlBarWidget(QFrame):
     connect_requested = pyqtSignal()
     home_requested = pyqtSignal()
     restart_detection_requested = pyqtSignal()
+    toggle_manual_mode_requested = pyqtSignal()
     start_mission_requested = pyqtSignal()
     stop_requested = pyqtSignal()
 
@@ -36,6 +37,13 @@ class ControlBarWidget(QFrame):
         btn_home = QPushButton("🏠 Home")
         btn_home.clicked.connect(self.home_requested.emit)
         layout.addWidget(btn_home)
+
+        # Mode switch button (Mission Grid vs Manual Control)
+        self.btn_mode = QPushButton("🎮 Manual Mode")
+        self.btn_mode.setToolTip("Switch right panel between Mission Grid and Manual Control")
+        self.btn_mode.setStyleSheet("background-color: #1e293b; border: 1px solid #0284c7; color: #38bdf8; font-weight: bold;")
+        self.btn_mode.clicked.connect(self.toggle_manual_mode_requested.emit)
+        layout.addWidget(self.btn_mode)
 
         # Reset Detection Node button (close and open detection node again)
         btn_restart = QPushButton("🔄 Reset Detection Node")

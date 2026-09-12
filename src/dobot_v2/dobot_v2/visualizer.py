@@ -58,47 +58,44 @@ class DetectionVisualizer:
         for pt in poly:
             cv2.circle(vis, tuple(pt), 4, (255, 255, 0), -1)
 
-        # 9 Cell Cutouts
-        half = transform.cell_size / 2.0
-        for r in range(transform.cell_count):
-            for c in range(transform.cell_count):
-                cx_mm = transform.grid_size / 2.0 + (c - 1) * transform.cell_pitch
-                cy_mm = transform.grid_size / 2.0 + (r - 1) * transform.cell_pitch
+        # 9 Cell Cutouts (Rendered from cached geometry with 0 matrix multiplications)
+        cell_occupants = {
+            (o['cell']['row'], o['cell']['col']): tuple(int(c) for c in o['bgr_color'])
+            for o in detected_objects if o.get('cell')
+        }
 
-                occupant = next((o for o in detected_objects
-                                 if o.get('cell') and o['cell']['row'] == r and o['cell']['col'] == c), None)
+        cached = getattr(transform, 'cached_cells', None)
+        if cached:
+            for item in cached:
+                r, c = item['row'], item['col']
+                is_goal = item['is_goal']
+                poly = item['poly']
+                p_cell = item['center']
+                occupant_bgr = cell_occupants.get((r, c))
 
-                pts = [
-                    transform.grid_to_pixel(cx_mm - half, cy_mm - half),
-                    transform.grid_to_pixel(cx_mm + half, cy_mm - half),
-                    transform.grid_to_pixel(cx_mm + half, cy_mm + half),
-                    transform.grid_to_pixel(cx_mm - half, cy_mm + half)
-                ]
-                is_goal = (r == 1 and c == 1)
+                if poly is not None:
+                    col = occupant_bgr if occupant_bgr else ((0, 215, 255) if is_goal else (140, 180, 140))
+                    thick = 2 if (occupant_bgr or is_goal) else 1
+                    cv2.polylines(vis, [poly], isClosed=True, color=col, thickness=thick)
 
-                if all(p is not None for p in pts):
-                    col = occupant['bgr_color'] if occupant else ((0, 215, 255) if is_goal else (140, 180, 140))
-                    thick = 2 if (occupant or is_goal) else 1
-                    cv2.polylines(vis, [np.array(pts)], isClosed=True, color=col, thickness=thick)
-
-                p_cell = transform.grid_to_pixel(cx_mm, cy_mm)
                 if p_cell:
-                    lbl = "GOAL" if is_goal else f"({r},{c})"
                     col = (0, 220, 255) if is_goal else (160, 160, 160)
                     cv2.circle(vis, p_cell, 2, col, -1)
-                    cv2.putText(vis, lbl, (p_cell[0] - 14, p_cell[1] + 4),
+                    cv2.putText(vis, item['label'], (p_cell[0] - 14, p_cell[1] + 4),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.32, col, 1, cv2.LINE_AA)
 
-        # Local Origin Axes (0,0)
-        p_origin = transform.grid_to_pixel(0.0, 0.0)
-        p_x = transform.grid_to_pixel(30.0, 0.0)
-        p_y = transform.grid_to_pixel(0.0, 30.0)
-        if p_origin and p_x and p_y:
-            cv2.circle(vis, p_origin, 5, (0, 255, 255), -1)
-            cv2.arrowedLine(vis, p_origin, p_x, (0, 0, 255), 2, tipLength=0.25)
-            cv2.putText(vis, "+X", (p_x[0] + 4, p_x[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
-            cv2.arrowedLine(vis, p_origin, p_y, (0, 255, 0), 2, tipLength=0.25)
-            cv2.putText(vis, "+Y", (p_y[0] - 10, p_y[1] + 12), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 0), 1)
+        # Local Origin Axes (0,0) from cache
+        orig = getattr(transform, 'cached_origin', None)
+        if orig:
+            p_origin = orig.get('p0')
+            p_x = orig.get('px')
+            p_y = orig.get('py')
+            if p_origin and p_x and p_y:
+                cv2.circle(vis, p_origin, 5, (0, 255, 255), -1)
+                cv2.arrowedLine(vis, p_origin, p_x, (0, 0, 255), 2, tipLength=0.25)
+                cv2.putText(vis, "+X", (p_x[0] + 4, p_x[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
+                cv2.arrowedLine(vis, p_origin, p_y, (0, 255, 0), 2, tipLength=0.25)
+                cv2.putText(vis, "+Y", (p_y[0] - 10, p_y[1] + 12), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 0), 1)
 
         # Dobot Base Projection
         bgx = transform.robot_base_x - transform.grid_tl_field_x
