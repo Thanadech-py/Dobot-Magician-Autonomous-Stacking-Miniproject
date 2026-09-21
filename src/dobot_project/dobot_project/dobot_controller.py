@@ -47,13 +47,17 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from std_msgs.msg import String
 
 try:
-    from pydobot import Dobot, MODE_PTP
-    from pydobot.dobot import DobotException
+    from pydobot import Dobot
+    from pydobot.dobot import DobotException, MODE_PTP
 except ImportError:
-    raise ImportError(
-        "pydobot2 is required. Install it with:\n"
-        "  pip install pydobot2"
-    )
+    try:
+        from pydobot import Dobot, MODE_PTP
+        from pydobot.dobot import DobotException
+    except ImportError:
+        raise ImportError(
+            "pydobot2 is required. Install it with:\n"
+            "  pip install pydobot2"
+        )
 
 
 # ---------------------------------------------------------------------------

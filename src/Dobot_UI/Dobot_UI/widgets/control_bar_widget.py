@@ -55,10 +55,11 @@ class ControlBarWidget(QFrame):
         layout.addStretch()
 
         # Mission Action Buttons
-        btn_start = QPushButton("▶ START STACKING (1st..8th)")
-        btn_start.setStyleSheet("background-color: #059669; color: white; font-weight: bold;")
-        btn_start.clicked.connect(self.start_mission_requested.emit)
-        layout.addWidget(btn_start)
+        self.btn_start = QPushButton("▶ START MISSION (Clear ➔ Stack ➔ Restore)")
+        self.btn_start.setToolTip("Execute 3-phase mission: Clear obstacles to feeders, stack goal, restore obstacles")
+        self.btn_start.setStyleSheet("background-color: #059669; color: white; font-weight: bold;")
+        self.btn_start.clicked.connect(self.start_mission_requested.emit)
+        layout.addWidget(self.btn_start)
 
         btn_stop = QPushButton("🛑 EMERGENCY STOP")
         btn_stop.setStyleSheet("background-color: #dc2626; color: white; font-weight: bold;")

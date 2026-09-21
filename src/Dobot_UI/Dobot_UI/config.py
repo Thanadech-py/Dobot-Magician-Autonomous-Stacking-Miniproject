@@ -36,8 +36,9 @@ DEFAULT_CONFIG = {
         "pick_z_mm":        12.5,
     },
     "stacking": {
-        "base_drop_z_mm": 30.0,
-        "cube_height_mm": 25.0,
+        "max_stack_blocks": 4,
+        "base_drop_z_mm":   30.0,
+        "cube_height_mm":   25.0,
     },
     "cell_defaults": {
         "orders": [1, 2, 3, 4, 5, 6, 7, 8],
@@ -65,6 +66,22 @@ DEFAULT_CONFIG = {
         "default_rot_step_deg": 5.0,
         "hover_z_mm":           80.0,
         "dropoff_z_mm":         30.0,
+    },
+    "stored_positions": {
+        "use_stored_positions": True,
+        "goal": [200.0, 0.0, 30.0],
+        "cell_0": [211.0, 35.0, 12.5],
+        "cell_1": [211.0, 0.0, 12.5],
+        "cell_2": [211.0, -35.0, 12.5],
+        "cell_3": [176.0, 35.0, 12.5],
+        "cell_4": [176.0, -35.0, 12.5],
+        "cell_5": [141.0, 35.0, 12.5],
+        "cell_6": [141.0, 0.0, 12.5],
+        "cell_7": [141.0, -35.0, 12.5],
+        "feeder_1": [219.8, 79.3, 12.5],
+        "feeder_2": [187.8, 79.3, 12.5],
+        "feeder_3": [155.8, 79.3, 12.5],
+        "feeder_4": [123.8, 79.3, 12.5],
     },
 }
 
@@ -140,3 +157,50 @@ CELL_DEFAULTS = _CONFIG["cell_defaults"]
 DETECTION     = _CONFIG["detection_node"]
 COLOR_HEX     = _CONFIG["color_hex"]
 MANUAL_CONTROL = _CONFIG["manual_control"]
+STORED_POSITIONS = _CONFIG.get("stored_positions", DEFAULT_CONFIG["stored_positions"])
+
+
+def save_stored_positions(positions: dict) -> bool:
+    """Saves updated stored positions into dobot_ui.yaml in source and install locations."""
+    global STORED_POSITIONS
+    STORED_POSITIONS.update(positions)
+
+    candidates = [
+        "/home/thxncdzch/dobot_ws/src/Dobot_UI/config/dobot_ui.yaml",
+        "/home/thxncdzch/dobot_ws/install/Dobot_UI/share/Dobot_UI/config/dobot_ui.yaml",
+    ]
+    cfg_path = find_config_path()
+    if cfg_path and cfg_path not in candidates:
+        candidates.insert(0, cfg_path)
+
+    saved_any = False
+    for path in candidates:
+        if os.path.isfile(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    raw = yaml.safe_load(f) or {}
+                raw["stored_positions"] = STORED_POSITIONS
+                with open(path, "w", encoding="utf-8") as f:
+                    yaml.dump(raw, f, default_flow_style=False, sort_keys=False)
+                saved_any = True
+                logger.info("Saved stored positions to: %s", path)
+            except Exception as e:
+                logger.warning("Failed to save stored positions to %s: %s", path, e)
+    return saved_any
+
+
+TARGET_OPTIONS = [
+    ("🎯 Center Goal (Drop)", "goal"),
+    ("Cell [0,0] Top-Left", "cell_0"),
+    ("Cell [0,1] Top", "cell_1"),
+    ("Cell [0,2] Top-Right", "cell_2"),
+    ("Cell [1,0] Left", "cell_3"),
+    ("Cell [1,2] Right", "cell_4"),
+    ("Cell [2,0] Bottom-Left", "cell_5"),
+    ("Cell [2,1] Bottom", "cell_6"),
+    ("Cell [2,2] Bottom-Right", "cell_7"),
+    ("Feeder 1", "feeder_1"),
+    ("Feeder 2", "feeder_2"),
+    ("Feeder 3", "feeder_3"),
+    ("Feeder 4", "feeder_4"),
+]

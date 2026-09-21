@@ -7,6 +7,7 @@ from .robot_telemetry_widget import RobotTelemetryWidget
 from .control_bar_widget import ControlBarWidget
 from .log_widget import LogWidget
 from .manual_control_widget import ManualControlWidget
+from .teach_widget import TeachWidget
 
 __all__ = [
     "VideoWidget",
@@ -16,4 +17,5 @@ __all__ = [
     "ControlBarWidget",
     "LogWidget",
     "ManualControlWidget",
+    "TeachWidget",
 ]

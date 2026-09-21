@@ -47,7 +47,6 @@ class ManualControlWidget(QWidget):
         self._init_ui()
 
     def _init_ui(self):
-        # Top-level scroll area to fit on any screen resolution
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
         scroll_off = Qt.ScrollBarPolicy.ScrollBarAlwaysOff if hasattr(Qt, "ScrollBarPolicy") else Qt.ScrollBarAlwaysOff
@@ -108,7 +107,7 @@ class ManualControlWidget(QWidget):
         box = QGroupBox("CARTESIAN JOG")
         v_lay = QVBoxLayout(box)
         v_lay.setContentsMargins(8, 12, 8, 8)
-        v_lay.setSpacing(8)
+        v_lay.setSpacing(6)
 
         # --- Step size selection ---
         step_row = QHBoxLayout()
@@ -281,7 +280,7 @@ class ManualControlWidget(QWidget):
 
         v_lay.addLayout(grid)
 
-        # Buttons: Read Current Pose & Go To Target
+        # Buttons: Copy Pose & Move To
         btn_row = QHBoxLayout()
         btn_row.setSpacing(6)
 
@@ -369,25 +368,17 @@ class ManualControlWidget(QWidget):
     def update_telemetry(self, data: dict):
         """Receives live telemetry dict from ROS bridge and updates internal state."""
         if "x" in data:
-            try:
-                self.cur_x = float(data["x"])
-            except (ValueError, TypeError):
-                pass
+            try: self.cur_x = float(data["x"])
+            except (ValueError, TypeError): pass
         if "y" in data:
-            try:
-                self.cur_y = float(data["y"])
-            except (ValueError, TypeError):
-                pass
+            try: self.cur_y = float(data["y"])
+            except (ValueError, TypeError): pass
         if "z" in data:
-            try:
-                self.cur_z = float(data["z"])
-            except (ValueError, TypeError):
-                pass
+            try: self.cur_z = float(data["z"])
+            except (ValueError, TypeError): pass
         if "r" in data:
-            try:
-                self.cur_r = float(data["r"])
-            except (ValueError, TypeError):
-                pass
+            try: self.cur_r = float(data["r"])
+            except (ValueError, TypeError): pass
 
         if "suction" in data:
             is_suction = bool(data["suction"])

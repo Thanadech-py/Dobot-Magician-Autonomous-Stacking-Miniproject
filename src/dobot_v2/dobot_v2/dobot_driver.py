@@ -5,22 +5,27 @@ import threading
 import time
 
 try:
-    from pydobot import Dobot, MODE_PTP
-    from pydobot.dobot import DobotException
+    from pydobot import Dobot
+    from pydobot.dobot import DobotException, MODE_PTP
     HAS_PYDOBOT = True
 except ImportError:
     try:
-        from pydobot2 import Dobot, MODE_PTP
-        from pydobot2.dobot import DobotException
+        from pydobot import Dobot, MODE_PTP
+        from pydobot.dobot import DobotException
         HAS_PYDOBOT = True
     except ImportError:
-        HAS_PYDOBOT = False
-        Dobot = None
-        MODE_PTP = None
+        try:
+            from pydobot2 import Dobot
+            from pydobot2.dobot import DobotException, MODE_PTP
+            HAS_PYDOBOT = True
+        except ImportError:
+            HAS_PYDOBOT = False
+            Dobot = None
+            MODE_PTP = None
 
-        class DobotException(Exception):
-            """Fallback exception when pydobot is not installed."""
-            pass
+            class DobotException(Exception):
+                """Fallback exception when pydobot is not installed."""
+                pass
 
 logger = logging.getLogger("dobot_v2.driver")
 
@@ -191,24 +196,31 @@ class DobotDriver:
     def get_pose(self) -> tuple[float, float, float, float]:
         """Returns the current Cartesian position (X, Y, Z, R) in mm/deg."""
         with self._lock:
-            if self._dobot is not None:
-                try:
-                    pose = self._dobot.pose()
+            self._refresh_pose_locked()
+            return self.cur_x, self.cur_y, self.cur_z, self.cur_r
+
+    def _refresh_pose_locked(self):
+        """Reads hardware pose from Dobot Magician."""
+        if self._dobot is None:
+            return
+        try:
+            if hasattr(self._dobot, "get_pose"):
+                pose = self._dobot.get_pose()
+                if hasattr(pose, "position"):
+                    self.cur_x = float(pose.position.x)
+                    self.cur_y = float(pose.position.y)
+                    self.cur_z = float(pose.position.z)
+                    self.cur_r = float(pose.position.r)
+                elif isinstance(pose, (tuple, list)):
                     self.cur_x = float(pose[0])
                     self.cur_y = float(pose[1])
                     self.cur_z = float(pose[2])
                     self.cur_r = float(pose[3])
-                except Exception:
-                    pass
-            return self.cur_x, self.cur_y, self.cur_z, self.cur_r
-
-    def _refresh_pose_locked(self):
-        if self._dobot is not None:
-            try:
+            elif hasattr(self._dobot, "pose"):
                 pose = self._dobot.pose()
                 self.cur_x = float(pose[0])
                 self.cur_y = float(pose[1])
                 self.cur_z = float(pose[2])
                 self.cur_r = float(pose[3])
-            except Exception:
-                pass
+        except Exception as e:
+            self.log.debug(f"Failed to refresh pose: {e}")

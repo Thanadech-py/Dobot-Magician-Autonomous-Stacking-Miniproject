@@ -29,15 +29,23 @@ dobot_controller:
 
     # ── Geometrical Heights & Positions (mm) ──────────────────────
     geometry:
+      max_stack_blocks: 4        # Stack goal locked to maximum 4 blocks
       hover_z: 80.0              # Safe transit height above field
       pick_z: 12.5               # Descend height for picking cubes
-      dropoff_x: 200.0           # Center goal drop-off X coordinate
+      dropoff_x: 176.0           # Center goal drop-off X coordinate (grid cell 1,1)
       dropoff_y: 0.0             # Center goal drop-off Y coordinate
       dropoff_z: 30.0            # Base drop height for bottom cube
       cube_height: 25.0          # Cube height increment per stacking level
+      safe_goal_clear_z: 142.0   # Elevated transit height to clear stacked goal tower
+      goal_keepout_radius: 38.0  # XY keepout radius around center goal to avoid collision
       calib_x: 150.0             # Neutral calibration X
       calib_y: 0.0               # Neutral calibration Y
       calib_z: 80.0              # Neutral calibration Z
+      feeders:
+        feeder_1: [219.8, 79.3, 12.5]
+        feeder_2: [187.8, 79.3, 12.5]
+        feeder_3: [155.8, 79.3, 12.5]
+        feeder_4: [123.8, 79.3, 12.5]
 
     # ── End-Effector ───────────────────────────────────────────────
     effector:

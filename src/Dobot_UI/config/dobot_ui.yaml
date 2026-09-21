@@ -1,67 +1,117 @@
-# ──────────────────────────────────────────────────────────────────
-#  Dobot_UI Configuration File
-# ──────────────────────────────────────────────────────────────────
-
-# ── ROS 2 Topics ──────────────────────────────────────────────────
 topics:
-  image_raw:   "detected_objects_image"
-  image_comp:  "detected_objects_image/compressed"
-  detections:  "detected_objects"
-  status:      "dobot_status"
-  command:     "dobot_ui_cmd"
-  reset_grid:  "reset_grid"
-
-# ── Window ────────────────────────────────────────────────────────
+  image_raw: detected_objects_image
+  image_comp: detected_objects_image/compressed
+  detections: detected_objects
+  status: dobot_status
+  command: dobot_ui_cmd
+  reset_grid: reset_grid
 window:
-  title:  "Dobot Magician - Stacking Mission UI"
-  width:  1100
+  title: Dobot Magician - Stacking Mission UI
+  width: 1100
   height: 750
-
-# ── Grid & Field Geometry (mm) ───────────────────────────────────
 grid:
-  cell_pitch_mm:    35.0   # distance between adjacent cell centers
-  origin_offset_x:  22.0   # X offset of first cell center in grid frame
-  origin_offset_y:  22.0   # Y offset of first cell center in grid frame
-  grid_tl_x_mm:    48.0   # grid top-left X on A4 sheet
-  grid_tl_y_mm:    37.0   # grid top-left Y on A4 sheet
-  robot_base_x_mm: 105.0  # robot base X on A4 sheet
-  robot_base_y_mm: 270.0  # robot base Y on A4 sheet
-  pick_z_mm:        12.5   # Z height for picking a cube
-
-# ── Stacking Mission ──────────────────────────────────────────────
+  cell_pitch_mm: 35.0
+  origin_offset_x: 22.0
+  origin_offset_y: 22.0
+  grid_tl_x_mm: 48.0
+  grid_tl_y_mm: 37.0
+  robot_base_x_mm: 105.0
+  robot_base_y_mm: 270.0
+  pick_z_mm: 12.5
 stacking:
-  base_drop_z_mm:  30.0   # Z of the drop center for the first cube (bottom of stack)
-  cube_height_mm:  25.0   # Height of one cube; stacking increment per level
-
-# ── Cell Defaults (applied to 8 outer cells in clockwise order) ──
-# cell_id order matches OUTER_CELLS: TL, T, TR, L, R, BL, B, BR
+  max_stack_blocks: 4
+  base_drop_z_mm: 30.0
+  cube_height_mm: 25.0
 cell_defaults:
-  orders: [1, 2, 3, 4, 5, 6, 7, 8]
-  colors: ["red", "yellow", "green", "blue", "orange", "purple", "cyan", "red"]
-
-# ── Detection Node Restart ────────────────────────────────────────
+  orders:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  colors:
+  - red
+  - yellow
+  - green
+  - blue
+  - orange
+  - purple
+  - cyan
+  - red
 detection_node:
-  ros2_package:  "dobot_v2"
-  ros2_node:     "detection_node"
-  installed_exe: "/home/thxncdzch/dobot_ws/install/dobot_v2/lib/dobot_v2/detection_node"
-  src_script:    "/home/thxncdzch/dobot_ws/src/dobot_v2/dobot_v2/detection_node.py"
+  ros2_package: dobot_v2
+  ros2_node: detection_node
+  installed_exe: /home/thxncdzch/dobot_ws/install/dobot_v2/lib/dobot_v2/detection_node
+  src_script: /home/thxncdzch/dobot_ws/src/dobot_v2/dobot_v2/detection_node.py
   restart_delay_sec: 0.5
-
-# ── Color Hex Map for cube color badges ──────────────────────────
 color_hex:
-  red:    "#ef4444"
-  yellow: "#eab308"
-  green:  "#22c55e"
-  blue:   "#3b82f6"
-  orange: "#f97316"
-  purple: "#a855f7"
-  cyan:   "#06b6d4"
-  none:   "#64748b"
-
-# ── Manual Control Defaults ───────────────────────────────────────
+  red: '#ef4444'
+  yellow: '#eab308'
+  green: '#22c55e'
+  blue: '#3b82f6'
+  orange: '#f97316'
+  purple: '#a855f7'
+  cyan: '#06b6d4'
+  none: '#64748b'
 manual_control:
-  default_step_mm:      10.0   # Linear jog step (mm)
-  default_rot_step_deg: 5.0    # Rotation jog step (deg)
-  hover_z_mm:           80.0   # Preset hover height (mm)
-  dropoff_z_mm:         30.0   # Preset drop height (mm)
-
+  default_step_mm: 10.0
+  default_rot_step_deg: 5.0
+  hover_z_mm: 80.0
+  dropoff_z_mm: 30.0
+stored_positions:
+  use_stored_positions: true
+  goal:
+  - 175.3
+  - 1.1
+  - -43.6
+  cell_0:
+  - 208.6
+  - 25.6
+  - -37.1
+  cell_1:
+  - 208.3
+  - 1.2
+  - -37.5
+  cell_2:
+  - 207.4
+  - -25.0
+  - -36.6
+  cell_3:
+  - 177.4
+  - 27.8
+  - -43.1
+  cell_4:
+  - 177.0
+  - -23.7
+  - -43.2
+  cell_5:
+  - 144.0
+  - 23.3
+  - -45.7
+  cell_6:
+  - 144.6
+  - -0.9
+  - -45.1
+  cell_7:
+  - 145.7
+  - -23.4
+  - -43.8
+  feeder_1:
+  - 220.4
+  - 63.6
+  - -42.9
+  feeder_2:
+  - 189.6
+  - 57.8
+  - -42.3
+  feeder_3:
+  - 159.3
+  - 57.3
+  - -44.3
+  feeder_4:
+  - 130.8
+  - 52.8
+  - -44.2

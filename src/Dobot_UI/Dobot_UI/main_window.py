@@ -24,6 +24,7 @@ try:
     from .widgets.robot_telemetry_widget import RobotTelemetryWidget
     from .widgets.log_widget import LogWidget
     from .widgets.manual_control_widget import ManualControlWidget
+    from .widgets.teach_widget import TeachWidget
 except (ImportError, ValueError):
     from Dobot_UI.constants import STYLESHEET
     from Dobot_UI.config import WINDOW
@@ -35,6 +36,7 @@ except (ImportError, ValueError):
     from Dobot_UI.widgets.robot_telemetry_widget import RobotTelemetryWidget
     from Dobot_UI.widgets.log_widget import LogWidget
     from Dobot_UI.widgets.manual_control_widget import ManualControlWidget
+    from Dobot_UI.widgets.teach_widget import TeachWidget
 
 
 class DobotMainWindow(QMainWindow):
@@ -91,6 +93,10 @@ class DobotMainWindow(QMainWindow):
         self.manual_ctrl = ManualControlWidget(self)
         self.right_tabs.addTab(self.manual_ctrl, "🎮 Manual Control")
 
+        # Tab 3: Goal & Cell Teaching Menu (Vision Bypass)
+        self.teach_widget = TeachWidget(self)
+        self.right_tabs.addTab(self.teach_widget, "📍 Teach Positions")
+
         splitter.addWidget(self.right_tabs)
         splitter.setSizes([480, 600])
 
@@ -105,12 +111,14 @@ class DobotMainWindow(QMainWindow):
         self.bridge.image_received.connect(self.video.set_frame)
         self.bridge.status_received.connect(self.telemetry.update_status)
         self.bridge.status_received.connect(self.manual_ctrl.update_telemetry)
+        self.bridge.status_received.connect(self.teach_widget.update_telemetry)
         self.bridge.detections_received.connect(self._on_detections)
         self.bridge.log_message.connect(self.log.append_log)
 
         # Grid and sequence updates
         self.grid.sequence_changed.connect(self._sync_sequence)
         self.grid.sync_requested.connect(self._on_sync_vision)
+        self.grid.bypass_toggled.connect(self.teach_widget.set_bypass_mode)
 
         # Mode toggle & Tab changed
         self.toolbar.toggle_manual_mode_requested.connect(self._toggle_mode)
@@ -123,6 +131,13 @@ class DobotMainWindow(QMainWindow):
         self.manual_ctrl.gripper_requested.connect(self._on_manual_gripper)
         self.manual_ctrl.preset_requested.connect(self._on_manual_preset)
         self.manual_ctrl.stop_requested.connect(lambda: self.bridge.send_cmd({"cmd": "stop"}))
+
+        # Teach Widget signals
+        self.teach_widget.jog_requested.connect(self._on_manual_jog)
+        self.teach_widget.move_to_requested.connect(self._on_manual_move_to)
+        self.teach_widget.suction_requested.connect(self._on_manual_suction)
+        self.teach_widget.positions_updated.connect(self.grid.set_stored_positions)
+        self.teach_widget.bypass_toggled.connect(self.grid.set_bypass_mode)
 
         # Commands
         self.toolbar.connect_requested.connect(lambda: self.bridge.send_cmd({"cmd": "connect"}))
@@ -149,38 +164,50 @@ class DobotMainWindow(QMainWindow):
     def _start_mission(self):
         tasks = self.grid.get_ordered_tasks()
         if not tasks:
-            QMessageBox.warning(self, "No Tasks", "Please assign stack order (1..8) to grid cubes.")
+            QMessageBox.warning(self, "No Tasks", "Please assign cubes to Goal (#1..#4) or Feeders (Obs #1..#4).")
             return
+
+        clear_cnt = sum(1 for t in tasks if t.get("action") == "clear_to_feeder")
+        stack_cnt = sum(1 for t in tasks if t.get("action") == "stack_goal")
+        restore_cnt = sum(1 for t in tasks if t.get("action") == "restore_from_feeder")
+
+        formatted_tasks = []
+        for t in tasks:
+            formatted_tasks.append({
+                "action": t.get("action", "stack_goal"),
+                "phase": t.get("phase", 2),
+                "order": t.get("order", 1),
+                "cell_id": str(t.get("cell_id", "")),
+                "cell_name": t.get("cell_name", ""),
+                "feeder_id": t.get("feeder_id"),
+                "feeder_name": t.get("feeder_name", ""),
+                "color": t.get("color", "none"),
+                "pick": {"x": t["pick"][0], "y": t["pick"][1], "z": t["pick"][2]},
+                "drop": {"x": t["drop"][0], "y": t["drop"][1], "z": t["drop"][2]},
+                "drop_z": float(t.get("drop_z", 12.5)),
+            })
 
         payload = {
             "cmd": "mission",
-            "task_count": len(tasks),
-            "tasks": [
-                {
-                    "order": t["order"],
-                    "index": t["order"],
-                    "cell_id": t["cell_id"],
-                    "color": t["color"],
-                    "pick": {"x": t["pick"][0], "y": t["pick"][1], "z": t["pick"][2]},
-                    "drop_z": t["drop_z"]
-                }
-                for t in tasks
-            ]
+            "task_count": len(formatted_tasks),
+            "tasks": formatted_tasks,
         }
         self.bridge.send_cmd(payload)
-        self.log.append_log("INFO", f"Dispatched mission with {len(tasks)} stacking steps.")
+        self.log.append_log(
+            "INFO",
+            f"Dispatched mission: {clear_cnt} obstacles cleared, {stack_cnt} goal stacked (max 4), {restore_cnt} restored."
+        )
 
     def _toggle_mode(self):
-        new_idx = 1 if self.right_tabs.currentIndex() == 0 else 0
-        self.right_tabs.setCurrentIndex(new_idx)
+        cur = self.right_tabs.currentIndex()
+        next_idx = (cur + 1) % self.right_tabs.count()
+        self.right_tabs.setCurrentIndex(next_idx)
 
     def _on_tab_changed(self, index: int):
-        if index == 1:
-            self.toolbar.btn_mode.setText("🎯 Mission Mode")
-            self.log.append_log("INFO", "Switched to Manual Control mode.")
-        else:
-            self.toolbar.btn_mode.setText("🎮 Manual Mode")
-            self.log.append_log("INFO", "Switched to Stacking Mission mode.")
+        titles = {0: "🎮 Manual Mode", 1: "📍 Teach Mode", 2: "🎯 Mission Mode"}
+        modes  = {0: "Stacking Mission", 1: "Manual Control", 2: "Teach Positions"}
+        self.toolbar.btn_mode.setText(titles.get(index, "🎮 Manual Mode"))
+        self.log.append_log("INFO", f"Switched to {modes.get(index, 'tab')} mode.")
 
     def _on_manual_jog(self, axis: str, direction: int, step: float):
         payload = {

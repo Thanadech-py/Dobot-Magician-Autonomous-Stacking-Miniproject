@@ -82,9 +82,10 @@ src/Dobot_UI/
 │       ├── __init__.py           # Widget exports
 │       ├── control_bar_widget.py # Action toolbar & mode toggle button
 │       ├── video_widget.py       # Camera feed viewer with FPS and reset node button
-│       ├── grid_widget.py        # 3x3 interactive mission grid cards
-│       ├── sequence_widget.py    # 1st-to-8th execution sequence table
+│       ├── grid_widget.py        # 3x3 interactive mission grid cards (Locked to 4 blocks max)
+│       ├── sequence_widget.py    # 1st-to-4th execution sequence table
 │       ├── manual_control_widget.py # Cartesian jog, step selector, move_to, tool controls
+│       ├── teach_widget.py       # Dedicated Goal & Cell Teaching menu (Vision Bypass)
 │       ├── robot_telemetry_widget.py # Cartesian coordinates & suction indicator
 │       └── log_widget.py         # Color-coded system event log console
 ├── package.xml
@@ -98,9 +99,9 @@ src/Dobot_UI/
 ### 1. Action Toolbar (`ControlBarWidget`)
 - **⚡ Connect**: Commands controller to connect to serial port.
 - **🏠 Home**: Commands Dobot axis homing sequence.
-- **🎮 Manual Mode / 🎯 Mission Mode**: One-click toggle switching the right panel between Stacking Mission and Manual Control.
+- **🎮 Manual Mode / 🎯 Mission Mode**: One-click toggle switching between Stacking Mission and Manual Control.
 - **🔄 Reset Detection Node**: Gracefully terminates any hanging vision process and relaunches `detection_node`.
-- **▶ START STACKING (1st..8th)**: Formulates structured mission JSON and dispatches to controller.
+- **▶ START MISSION (Clear ➔ Stack ➔ Restore)**: Dispatches structured 3-phase mission JSON to controller.
 - **🛑 EMERGENCY STOP**: Immediately halts robot motion and clears mission queues.
 
 ### 2. Live Vision & Camera Viewer (`VideoWidget`)
@@ -113,10 +114,21 @@ src/Dobot_UI/
 - Live suction status badge (`SUCTION: ON` in green, `SUCTION: OFF` in muted grey).
 
 ### 4. Mission Planner Tab (`FieldGridWidget` & `SequenceWidget`)
-- **3x3 Grid Cards**: Interactive cell assignment for 8 outer cubes.
-- **Sync from Vision**: Automatically assigns detected cube colors to grid cells from live camera feed.
-- **Auto 1..8**: Instantly assigns sequential order clockwise.
-- **Sequence Table**: Lists order, grid cell, color, and vertical drop height ($Z_{drop}$).
+- **3x3 Grid Cards**: Interactive cell assignment for all 8 outer cubes:
+  - Select `#1 (Goal)` to `#4 (Goal)` for the target blocks to stack vertically on the center goal (locked to maximum 4 blocks).
+  - Select `Obs #1 (Feeder 1)` to `Obs #4 (Feeder 4)` to designate obstacle cubes that must be removed to the 4 feeder slots before stacking and returned to origin after stacking.
+- **Locked Center Goal**: Displays `STACK GOAL (Max 4 Blocks)` at cell `[1, 1]`.
+- **⚡ Use Stored Coordinates (Vision Bypass)**: Checkbox to toggle using pre-taught physical positions instead of camera vision detection.
+- **Toolbar Automations**:
+  - `🔄 Sync Vision`: Automatically assigns detected cube colors to grid cells from live camera feed.
+  - `↻ Auto 1..4 (Goal)`: Assigns orders #1 to #4 clockwise to Goal and clears other cells.
+  - `↻ Auto All (4 Goal + 4 Obs)`: Assigns 4 Goal cubes (#1..#4) and 4 Obstacles to Feeders 1..4.
+  - `🧹 Auto Obs`: Automatically maps remaining colored cubes to available Feeders 1..4.
+- **3-Phase Mission Execution Plan Table**:
+  - **Phase 1 (Clear)**: Transits obstacle blocks from origin grid cells to Feeders 1..4.
+  - **Phase 2 (Stack)**: Stacks target blocks on Center Goal `[1, 1]` up to 4 levels high.
+  - **Phase 3 (Restore)**: Returns obstacle blocks from Feeders 1..4 back to their original grid cells.
+  - **Goal Collision Avoidance**: Automatically plans detour waypoints around the center goal and enforces elevated transit clearance ($Z > 140\,\text{mm}$) so the growing goal tower is never hit!
 
 ### 5. Manual Control & Jogging Tab (`ManualControlWidget`)
 - **Quick Presets**: Jump directly to `Home`, `Hover` ($Z=80\,\text{mm}$), `Drop-off` ($Z=30\,\text{mm}$), or `Zero R` ($R=0^\circ$).
@@ -132,7 +144,12 @@ src/Dobot_UI/
   - `📥 Copy Pose`: Copies current live robot telemetry into inputs.
   - `🚀 Move To`: Commands direct PTP travel to target coordinates.
 
-### 6. System Event Log (`LogWidget`)
+### 6. Teach Positions Tab (`TeachWidget`)
+- Dedicated menu to manually store and calibrate the physical position of the center goal (`[1, 1]`) and any outer grid cell.
+- Allows operating smoothly when camera vision is occluded or broken.
+- Saves calibrated positions directly to `dobot_ui.yaml`.
+
+### 7. System Event Log (`LogWidget`)
 - Color-coded timestamped log messages (`INFO`, `WARN`, `ERROR`, `SUCCESS`).
 
 ---
