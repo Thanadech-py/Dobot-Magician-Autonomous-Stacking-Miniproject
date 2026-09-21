@@ -2,7 +2,12 @@
 
 A modular, lightweight, and responsive Graphical User Interface (GUI) package for the **Dobot Magician** robotic arm, vision-guided cube stacking missions, and manual Cartesian jogging.
 
-The UI visualizes the live camera feed and object detections from `dobot_v2`, provides real-time Dobot telemetry (Cartesian X, Y, Z, R and suction status), provides interactive 1st-to-8th mission planning from a 3x3 grid, and features an integrated **Manual Control Panel** for jogging, tool testing, and direct coordinate positioning.
+The UI visualizes the live camera feed and object detections from `dobot_v2`, provides real-time Dobot telemetry (Cartesian X, Y, Z, R and suction status), provides interactive 4-block mission planning with 4-slot obstacle clearance and restoration, and features integrated **Manual Control** and **Teach Positions** panels.
+
+> 📚 **Complete Documentation & PDF Guides**:
+> - 🇹🇭 **คู่มือฉบับสมบูรณ์ภาษาไทย**: [**`DOBOT_TUTORIAL_TH.pdf`**](../../DOBOT_TUTORIAL_TH.pdf)
+> - 🇬🇧 **Full English Guide**: [**`DOBOT_TUTORIAL_EN.pdf`**](../../DOBOT_TUTORIAL_EN.pdf)
+> - 📖 **Technical Manual**: [**`DOCUMENTATION.md`**](../../DOCUMENTATION.md)
 
 ---
 
@@ -14,9 +19,10 @@ The UI visualizes the live camera feed and object detections from `dobot_v2`, pr
   - [1. Action Toolbar](#1-action-toolbar)
   - [2. Live Vision & Camera Viewer](#2-live-vision--camera-viewer)
   - [3. Robot Telemetry Panel](#3-robot-telemetry-panel)
-  - [4. Mission Planner Tab](#4-mission-planner-tab)
-  - [5. Manual Control & Jogging Tab](#5-manual-control--jogging-tab)
-  - [6. System Event Log](#6-system-event-log)
+  - [4. Mission Planner Tab](#4-mission-planner-tab-fieldgridwidget--sequencewidget)
+  - [5. Manual Control & Jogging Tab](#5-manual-control--jogging-tab-manualcontrolwidget)
+  - [6. Teach Positions Tab](#6-teach-positions-tab-teachwidget)
+  - [7. System Event Log](#7-system-event-log-logwidget)
 - [ROS 2 Interface & Topics](#ros-2-interface--topics)
 - [Configuration System (`dobot_ui.yaml`)](#configuration-system-dobot_uiyaml)
 - [Build & Run Instructions](#build--run-instructions)
@@ -114,6 +120,9 @@ src/Dobot_UI/
 - Live suction status badge (`SUCTION: ON` in green, `SUCTION: OFF` in muted grey).
 
 ### 4. Mission Planner Tab (`FieldGridWidget` & `SequenceWidget`)
+
+![Stacking Mission UI](../../docs/images/ui_mission_tab.png)
+
 - **3x3 Grid Cards**: Interactive cell assignment for all 8 outer cubes:
   - Select `#1 (Goal)` to `#4 (Goal)` for the target blocks to stack vertically on the center goal (locked to maximum 4 blocks).
   - Select `Obs #1 (Feeder 1)` to `Obs #4 (Feeder 4)` to designate obstacle cubes that must be removed to the 4 feeder slots before stacking and returned to origin after stacking.
@@ -131,6 +140,9 @@ src/Dobot_UI/
   - **Goal Collision Avoidance**: Automatically plans detour waypoints around the center goal and enforces elevated transit clearance ($Z > 140\,\text{mm}$) so the growing goal tower is never hit!
 
 ### 5. Manual Control & Jogging Tab (`ManualControlWidget`)
+
+![Manual Control UI](../../docs/images/ui_manual_tab.png)
+
 - **Quick Presets**: Jump directly to `Home`, `Hover` ($Z=80\,\text{mm}$), `Drop-off` ($Z=30\,\text{mm}$), or `Zero R` ($R=0^\circ$).
 - **Cartesian Jogging**:
   - Linear step: $1\,\text{mm}$, $5\,\text{mm}$, $10\,\text{mm}$, $50\,\text{mm}$.
@@ -145,9 +157,12 @@ src/Dobot_UI/
   - `🚀 Move To`: Commands direct PTP travel to target coordinates.
 
 ### 6. Teach Positions Tab (`TeachWidget`)
-- Dedicated menu to manually store and calibrate the physical position of the center goal (`[1, 1]`) and any outer grid cell.
-- Allows operating smoothly when camera vision is occluded or broken.
-- Saves calibrated positions directly to `dobot_ui.yaml`.
+
+![Teach Positions UI](../../docs/images/ui_teach_tab.png)
+
+- **Dedicated Calibration Menu**: Manually store and calibrate the physical position of the center goal (`[1, 1]`), 8 outer grid cells, and 4 feeder slots.
+- **Vision Bypass**: Allows operating smoothly when camera vision is occluded, lighting changes, or during image processing failure.
+- **Real-time Save**: Click **`💾 Save All Positions to YAML`** to persist calibrated positions directly to `dobot_ui.yaml`.
 
 ### 7. System Event Log (`LogWidget`)
 - Color-coded timestamped log messages (`INFO`, `WARN`, `ERROR`, `SUCCESS`).
